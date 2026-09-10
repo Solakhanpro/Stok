@@ -3,158 +3,346 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Raf & Stok Takip</title>
+  <title>WMS Core | Kurumsal Raf & Stok Yönetimi</title>
   <link rel="manifest" href="manifest.json">
   
+  <!-- Inter Font & Tailwind CSS -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Barcode / QR Scanner Library -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+          colors: {
+            brand: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 900: '#1e1b4b' }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Barcode Scanner & Firebase SDK -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
-<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col font-sans">
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
 
-  <!-- Üst Bar -->
-  <header class="bg-indigo-600 text-white shadow-md p-4 sticky top-0 z-20 flex justify-between items-center">
-    <div>
-      <h1 class="text-lg font-bold flex items-center gap-1.5">📦 Raf & Stok Takip</h1>
-      <p id="workspaceLabel" class="text-xs text-indigo-200">Alan: Seçilmedi</p>
-    </div>
-    <div id="authSection">
-      <button id="loginBtn" class="bg-white text-indigo-600 text-sm font-semibold px-3 py-1.5 rounded-lg shadow hover:bg-indigo-50 transition">
-        Google ile Giriş
-      </button>
-      <div id="userInfo" class="hidden flex items-center gap-2">
-        <img id="userAvatar" class="w-8 h-8 rounded-full border border-white object-cover" alt="Profil" />
-        <button id="logoutBtn" class="text-xs bg-indigo-700 px-2.5 py-1.5 rounded-lg hover:bg-indigo-800 transition">Çıkış</button>
+  <!-- Kurumsal Header -->
+  <header class="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-400 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 font-black text-xl">
+          W
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-base tracking-tight leading-none text-slate-100">WMS Cloud</h1>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">Enterprise</span>
+          </div>
+          <p id="workspaceLabel" class="text-xs text-slate-400 mt-0.5">Depo Lokasyonu: Yükleniyor...</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <div id="authSection">
+          <button id="loginBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm transition flex items-center gap-2">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.761H12.545z"/></svg>
+            Google ile Giriş
+          </button>
+          <div id="userInfo" class="hidden flex items-center gap-2.5">
+            <div class="text-right hidden sm:block">
+              <div id="userName" class="text-xs font-bold text-slate-200">Kullanıcı</div>
+              <div id="userEmail" class="text-[10px] text-slate-400">email@domain.com</div>
+            </div>
+            <img id="userAvatar" class="w-9 h-9 rounded-xl border border-slate-700 object-cover shadow" alt="Profil" />
+            <button id="logoutBtn" title="Güvenli Çıkış" class="p-2 rounded-lg bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </header>
 
-  <!-- Ana İçerik -->
-  <main class="flex-1 max-w-4xl w-full mx-auto p-3 sm:p-4 space-y-4">
+  <!-- Ana Panel -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 space-y-5">
 
-    <!-- Depo Seçimi & Araç Paneli -->
-    <div class="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200 space-y-3">
-      <div class="flex flex-wrap gap-2 justify-between items-center pb-2 border-b border-slate-100">
-        <div class="flex items-center gap-1.5">
-          <label class="text-xs font-semibold text-slate-500">Ortak Depo:</label>
-          <input type="text" id="workspaceInput" value="ana-depo" class="border rounded-lg px-2 py-1 text-sm w-28 text-center uppercase font-mono font-bold bg-slate-50 outline-none focus:ring-1 focus:ring-indigo-500" />
-          <button id="setWorkspaceBtn" class="bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-slate-700 transition">Bağlan</button>
+    <!-- KPI / Metrik Kartları -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div>
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Kayıtlı SKU</span>
+          <div id="kpiTotalSku" class="text-2xl font-extrabold text-slate-900 mt-1">0</div>
+          <span class="text-[11px] text-slate-500">Farklı Kalem</span>
         </div>
-        <div class="flex items-center gap-1.5">
-          <button id="openLogsBtn" class="text-xs bg-slate-700 text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-800 transition flex items-center gap-1">
-            📜 Geçmiş
-          </button>
-          <button id="filterCriticalBtn" class="text-xs bg-amber-50 text-amber-700 border border-amber-300 px-2.5 py-1.5 rounded-lg hover:bg-amber-100 transition flex items-center gap-1">
-            ⚠️ Kritikler (<span id="criticalCount">0</span>)
-          </button>
-        </div>
+        <div class="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-lg">📦</div>
       </div>
 
-      <!-- Dışa / İçe Aktarma Araçları -->
-      <div class="flex flex-wrap gap-2 items-center justify-end">
-        <input type="file" id="importJsonInput" accept=".json" class="hidden" />
-        <button id="importJsonBtn" class="text-xs bg-slate-100 text-slate-700 border border-slate-300 px-2.5 py-1.5 rounded-lg hover:bg-slate-200 transition">
-          📤 JSON Yükle
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div>
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Toplam Adet</span>
+          <div id="kpiTotalQuantity" class="text-2xl font-extrabold text-slate-900 mt-1">0</div>
+          <span class="text-[11px] text-emerald-600 font-medium">Stoktaki Ünite</span>
+        </div>
+        <div class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg">📊</div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div>
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Kritik Stok</span>
+          <div id="kpiCriticalCount" class="text-2xl font-extrabold text-rose-600 mt-1">0</div>
+          <span class="text-[11px] text-rose-500 font-medium">İkmal Gerekiyor</span>
+        </div>
+        <div class="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-lg">⚠️</div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div>
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Envanter Değeri</span>
+          <div id="kpiTotalValuation" class="text-2xl font-extrabold text-slate-900 mt-1">₺0</div>
+          <span class="text-[11px] text-slate-500">Maliyet Bazlı</span>
+        </div>
+        <div class="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-lg">₺</div>
+      </div>
+    </div>
+
+    <!-- Depo & Araç Barı -->
+    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-bold text-slate-500 uppercase">Aktif Depo:</span>
+        <div class="relative">
+          <input type="text" id="workspaceInput" value="ana-depo" class="border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-mono font-bold uppercase w-32 text-center bg-slate-50 focus:bg-white outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <button id="setWorkspaceBtn" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3 py-2 rounded-xl transition shadow-sm">
+          Değiştir
         </button>
-        <button id="exportBackupBtn" class="text-xs bg-emerald-600 text-white px-2.5 py-1.5 rounded-lg hover:bg-emerald-700 transition">
+        <span id="syncIndicator" class="ml-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Senkronize
+        </span>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <button id="openLogsBtn" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-3 py-2 rounded-xl border border-slate-200 transition flex items-center gap-1.5">
+          📜 İşlem Günlüğü
+        </button>
+        <button id="exportCsvBtn" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-3 py-2 rounded-xl border border-slate-200 transition flex items-center gap-1.5">
+          📊 Excel İndir
+        </button>
+        <button id="exportBackupBtn" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-3 py-2 rounded-xl border border-slate-200 transition flex items-center gap-1.5">
           📥 JSON Yedek
         </button>
-        <button id="exportCsvBtn" class="text-xs bg-blue-600 text-white px-2.5 py-1.5 rounded-lg hover:bg-blue-700 transition">
-          📊 Excel / CSV
+        <input type="file" id="importJsonInput" accept=".json" class="hidden" />
+        <button id="importJsonBtn" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold px-3 py-2 rounded-xl border border-indigo-200 transition flex items-center gap-1.5">
+          📤 Geri Yükle
         </button>
       </div>
     </div>
 
-    <!-- Ürün / Raf Ekleme Formu -->
-    <section class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-      <h2 class="text-sm font-bold text-slate-700 mb-3">Yeni Stok / Raf Kaydı</h2>
-      <form id="itemForm" class="grid grid-cols-1 sm:grid-cols-12 gap-3">
-        <div class="sm:col-span-3">
-          <label class="block text-xs font-semibold text-slate-500 mb-1">Raf Konumu</label>
-          <input type="text" id="shelfInput" placeholder="Örn: A-12" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" />
+    <!-- Hızlı Ekleme / İşlem Kartı -->
+    <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
+      <div class="flex items-center justify-between mb-3.5 pb-2 border-b border-slate-100">
+        <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-indigo-600"></span> Yeni Envanter Tanımla
+        </h2>
+        <span class="text-[11px] text-slate-400">Barkod okutarak veya elle form doldurun</span>
+      </div>
+
+      <form id="itemForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
+        <div class="lg:col-span-2">
+          <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Raf Kodu</label>
+          <input type="text" id="shelfInput" placeholder="Örn: A-04-2" required class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none uppercase font-mono" />
         </div>
-        <div class="sm:col-span-5">
-          <label class="block text-xs font-semibold text-slate-500 mb-1">Ürün / Barkod</label>
-          <div class="flex gap-1">
-            <input type="text" id="productInput" placeholder="Ürün adı veya barkodu" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" />
-            <button type="button" onclick="openScanner('productInput')" title="Barkod Tara" class="bg-slate-100 border border-slate-300 px-2.5 rounded-lg hover:bg-slate-200 transition">
+
+        <div class="lg:col-span-4">
+          <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Ürün Tanımı / Model</label>
+          <input type="text" id="productInput" placeholder="Örn: M6 Paslanmaz Somun" required class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+        </div>
+
+        <div class="lg:col-span-3">
+          <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Barkod / EAN</label>
+          <div class="flex gap-1.5">
+            <input type="text" id="barcodeInput" placeholder="8690000000" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-mono" />
+            <button type="button" onclick="openScanner('barcodeInput')" title="Barkod Okut" class="px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl border border-slate-200 transition">
               📷
             </button>
           </div>
         </div>
-        <div class="sm:col-span-2">
-          <label class="block text-xs font-semibold text-slate-500 mb-1">Miktar</label>
-          <input type="number" id="qtyInput" min="0" value="1" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none text-center" />
+
+        <div class="lg:col-span-3">
+          <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Kategori</label>
+          <select id="categoryInput" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+            <option value="Genel">Genel</option>
+            <option value="Hammadde">Hammadde</option>
+            <option value="Yarı Mamul">Yarı Mamul</option>
+            <option value="Yedek Parça">Yedek Parça</option>
+            <option value="Ticari Ürün">Ticari Ürün</option>
+            <option value="Sarf Malzeme">Sarf Malzeme</option>
+          </select>
         </div>
-        <div class="sm:col-span-2">
-          <label class="block text-xs font-semibold text-slate-500 mb-1">Kritik Eşik</label>
-          <div class="flex gap-1">
-            <input type="number" id="minStockInput" min="1" value="5" title="Kritik uyarı sınırı" class="w-full border rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none text-center" />
-            <button type="submit" class="bg-indigo-600 text-white font-bold px-3.5 py-2 rounded-lg hover:bg-indigo-700 transition">+</button>
-          </div>
+
+        <div class="lg:col-span-2">
+          <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Başlangıç Miktar</label>
+          <input type="number" id="qtyInput" min="0" value="1" required class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-center" />
+        </div>
+
+        <div class="lg:col-span-2">
+          <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Kritik Sınır</label>
+          <input type="number" id="minStockInput" min="0" value="5" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-center" />
+        </div>
+
+        <div class="lg:col-span-3">
+          <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Birim Fiyat (₺)</label>
+          <input type="number" id="priceInput" min="0" step="0.01" value="0.00" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-mono" />
+        </div>
+
+        <div class="lg:col-span-5 flex items-end">
+          <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-md shadow-indigo-600/20 transition flex items-center justify-center gap-2">
+            <span>+ Envantere Kaydet</span>
+          </button>
         </div>
       </form>
     </section>
 
-    <!-- Canlı Arama & Barkodla Arama -->
-    <div class="relative flex gap-1.5 items-center">
+    <!-- Filtreleme & Arama Çubuğu -->
+    <div class="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
       <div class="relative flex-1">
-        <input type="text" id="searchInput" placeholder="Raf, ürün veya barkoda göre anlık ara..." class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm pl-10 shadow-sm focus:ring-2 focus:ring-indigo-400 outline-none" />
+        <input type="text" id="searchInput" placeholder="Ürün adı, raf kodu veya barkod ile canlı ara..." class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm pl-10 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
         <span class="absolute left-3.5 top-2.5 text-slate-400 text-sm">🔍</span>
       </div>
-      <button onclick="openScanner('searchInput')" title="Arama için Barkod Tara" class="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 shadow-sm text-slate-600 hover:bg-slate-50 transition">
-        📷 Tara
-      </button>
+
+      <div class="flex items-center gap-2">
+        <button onclick="openScanner('searchInput')" title="Arama için Barkod Tara" class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold px-3.5 py-2.5 rounded-xl shadow-sm transition flex items-center gap-1.5 whitespace-nowrap">
+          📷 Barkod Ara
+        </button>
+        <select id="categoryFilter" class="bg-white border border-slate-200 text-slate-700 text-xs font-semibold px-3 py-2.5 rounded-xl shadow-sm outline-none">
+          <option value="ALL">Tüm Kategoriler</option>
+          <option value="Hammadde">Hammadde</option>
+          <option value="Yarı Mamul">Yarı Mamul</option>
+          <option value="Yedek Parça">Yedek Parça</option>
+          <option value="Ticari Ürün">Ticari Ürün</option>
+          <option value="Sarf Malzeme">Sarf Malzeme</option>
+        </select>
+        <button id="filterCriticalBtn" class="bg-white border border-slate-200 text-slate-700 text-xs font-semibold px-3 py-2.5 rounded-xl shadow-sm hover:bg-slate-50 transition flex items-center gap-1.5 whitespace-nowrap">
+          ⚠️ Kritikler
+        </button>
+      </div>
     </div>
 
-    <!-- Stok Listesi -->
-    <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div class="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-        <span class="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-          Stoktaki Kalemler (<span id="totalItemsCount">0</span>)
-        </span>
-        <span id="syncIndicator" class="text-xs text-emerald-600 flex items-center gap-1 font-medium">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Canlı Bağlı
-        </span>
-      </div>
-
-      <div id="stockList" class="divide-y divide-slate-100 min-h-[150px]">
-        <p class="text-center py-8 text-slate-400 text-sm">Yükleniyor veya giriş yapılmadı...</p>
+    <!-- Envanter Tablosu (DataTable) -->
+    <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <th class="py-3 px-4">Raf / Konum</th>
+              <th class="py-3 px-4">Ürün & Barkod</th>
+              <th class="py-3 px-4">Kategori</th>
+              <th class="py-3 px-4 text-center">Birim Fiyat</th>
+              <th class="py-3 px-4 text-center">Miktar Durumu</th>
+              <th class="py-3 px-4 text-center">Toplam Değer</th>
+              <th class="py-3 px-4 text-right">Hızlı İşlemler</th>
+            </tr>
+          </thead>
+          <tbody id="stockTableBody" class="divide-y divide-slate-100 text-xs text-slate-700">
+            <tr>
+              <td colspan="7" class="text-center py-10 text-slate-400">Veriler yükleniyor veya henüz giriş yapılmadı...</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
   </main>
 
-  <!-- BARKOD TARAYICI MODAL -->
-  <div id="scannerModal" class="fixed inset-0 bg-black/70 z-50 hidden flex flex-col items-center justify-center p-4">
-    <div class="bg-white w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl p-4 space-y-3">
-      <div class="flex justify-between items-center border-b pb-2">
-        <h3 class="font-bold text-sm text-slate-800">📷 Barkod / QR Okutun</h3>
-        <button onclick="closeScanner()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+  <!-- STOK HAREKET (GİRİŞ / ÇIKIŞ FİŞİ) MODALI -->
+  <div id="movementModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
+      <div class="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+        <div>
+          <h3 class="font-bold text-sm text-slate-900">📦 Stok Hareket Fişi</h3>
+          <p id="movementProductLabel" class="text-xs text-slate-500 truncate">Ürün Tanımı</p>
+        </div>
+        <button onclick="closeMovementModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
       </div>
-      <div id="qr-reader" class="w-full bg-slate-900 rounded-xl overflow-hidden min-h-[220px]"></div>
-      <p class="text-[11px] text-center text-slate-500">Kamerayı barkoda netleyecek şekilde tutun.</p>
+      <form id="movementForm" class="p-5 space-y-4">
+        <input type="hidden" id="movementItemId" />
+        <input type="hidden" id="movementCurrentQty" />
+
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" id="typeInBtn" onclick="setMovementType('IN')" class="py-2.5 rounded-xl font-bold text-xs border border-emerald-500 bg-emerald-50 text-emerald-700 flex items-center justify-center gap-1">
+            📥 Stok Girişi (+)
+          </button>
+          <button type="button" id="typeOutBtn" onclick="setMovementType('OUT')" class="py-2.5 rounded-xl font-bold text-xs border border-slate-200 text-slate-600 flex items-center justify-center gap-1">
+            📤 Stok Çıkışı (-)
+          </button>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Miktar</label>
+          <input type="number" id="movementQty" min="1" value="1" required class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center focus:ring-2 focus:ring-indigo-500 outline-none" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Hareket Sebebi / İrsaliye</label>
+          <select id="movementReason" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="Satınalma / Mal Kabul">Satınalma / Mal Kabul</option>
+            <option value="Sevkiyat / Satış">Sevkiyat / Satış</option>
+            <option value="Müşteri İadesi">Müşteri İadesi</option>
+            <option value="Üretime Çıkış">Üretime Çıkış</option>
+            <option value="Fire / Hasarlı Ürün">Fire / Hasarlı Ürün</option>
+            <option value="Sayım Düzeltme">Sayım Düzeltme</option>
+          </select>
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeMovementModal()" class="w-1/2 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition">Vazgeç</button>
+          <button type="submit" class="w-1/2 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white shadow-md shadow-indigo-600/20 transition">İşlemi Tamamla</button>
+        </div>
+      </form>
     </div>
   </div>
 
-  <!-- İŞLEM GEÇMİŞİ (LOG) MODAL -->
-  <div id="logsModal" class="fixed inset-0 bg-black/70 z-50 hidden flex flex-col items-center justify-center p-4">
-    <div class="bg-white w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[80vh]">
-      <div class="p-4 border-b flex justify-between items-center bg-slate-50">
-        <h3 class="font-bold text-sm text-slate-800 flex items-center gap-1">📜 Depo Hareket Geçmişi</h3>
+  <!-- BARKOD TARAYICI MODAL -->
+  <div id="scannerModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex flex-col items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl p-4 space-y-3">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-bold text-sm text-slate-900 flex items-center gap-1.5">📷 Barkod / QR Tara</h3>
+        <button onclick="closeScanner()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+      </div>
+      <div id="qr-reader" class="w-full bg-slate-900 rounded-xl overflow-hidden min-h-[240px]"></div>
+      <p class="text-[11px] text-center text-slate-500">Kamerayı barkoda paralel tutun.</p>
+    </div>
+  </div>
+
+  <!-- İŞLEM GEÇMİŞİ (AUDIT LOG) MODALI -->
+  <div id="logsModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex flex-col items-center justify-center p-4">
+    <div class="bg-white w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] border border-slate-100">
+      <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+        <div>
+          <h3 class="font-bold text-sm text-slate-900 flex items-center gap-1.5">📜 Denetim İzi & İşlem Geçmişi</h3>
+          <p class="text-[11px] text-slate-500">Depoda yapılan son 50 hareket kaydı</p>
+        </div>
         <button onclick="closeLogsModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
       </div>
       <div id="logsContainer" class="p-4 overflow-y-auto divide-y divide-slate-100 flex-1 space-y-2 text-xs">
-        <p class="text-center text-slate-400 py-6">Kayıtlar yükleniyor...</p>
+        <p class="text-center text-slate-400 py-8">Kayıtlar getiriliyor...</p>
       </div>
+    </div>
+  </div>
+
+  <!-- MODERN TOAST BİLDİRİMİ -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+    <div class="bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 border border-slate-800">
+      <span id="toastIcon">✅</span>
+      <span id="toastMsg">İşlem başarıyla gerçekleştirildi.</span>
     </div>
   </div>
 
   <script>
-    // Firebase Yapılandırması
+    // Firebase Yapılandırması (Doğrulanmış Anahtarlarınız)
     const firebaseConfig = {
       apiKey: "AIzaSyBxRYWnpcpeL2gafEyYp_o_t-oRWDCUCUc",
       authDomain: "stok-takip-b1852.firebaseapp.com",
@@ -168,7 +356,6 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
-
     db.enablePersistence().catch(err => console.warn("Çevrimdışı modu:", err.code));
 
     // Durum Değişkenleri
@@ -177,68 +364,89 @@
     let unsubscribeStockListener = null;
     let allItems = [];
     let onlyCriticalFilter = false;
+    let selectedCategoryFilter = "ALL";
     let html5QrScanner = null;
     let currentScanTargetId = null;
+    let currentMovementType = 'IN';
 
-    // DOM Elemanları
+    // DOM Bağlantıları
     const loginBtn = document.getElementById("loginBtn");
     const logoutBtn = document.getElementById("logoutBtn");
     const userInfo = document.getElementById("userInfo");
+    const userName = document.getElementById("userName");
+    const userEmail = document.getElementById("userEmail");
     const userAvatar = document.getElementById("userAvatar");
     const workspaceInput = document.getElementById("workspaceInput");
     const setWorkspaceBtn = document.getElementById("setWorkspaceBtn");
     const workspaceLabel = document.getElementById("workspaceLabel");
     const itemForm = document.getElementById("itemForm");
-    const stockList = document.getElementById("stockList");
+    const stockTableBody = document.getElementById("stockTableBody");
     const searchInput = document.getElementById("searchInput");
+    const categoryFilter = document.getElementById("categoryFilter");
+    const filterCriticalBtn = document.getElementById("filterCriticalBtn");
     const exportBackupBtn = document.getElementById("exportBackupBtn");
     const exportCsvBtn = document.getElementById("exportCsvBtn");
     const importJsonBtn = document.getElementById("importJsonBtn");
     const importJsonInput = document.getElementById("importJsonInput");
-    const filterCriticalBtn = document.getElementById("filterCriticalBtn");
-    const criticalCountEl = document.getElementById("criticalCount");
-    const totalItemsCountEl = document.getElementById("totalItemsCount");
     const openLogsBtn = document.getElementById("openLogsBtn");
 
-    // 1. Kimlik Doğrulama
+    // Metrik DOM'ları
+    const kpiTotalSku = document.getElementById("kpiTotalSku");
+    const kpiTotalQuantity = document.getElementById("kpiTotalQuantity");
+    const kpiCriticalCount = document.getElementById("kpiCriticalCount");
+    const kpiTotalValuation = document.getElementById("kpiTotalValuation");
+
+    // 1. Toast Bildirim Fonksiyonu
+    function showToast(msg, isSuccess = true) {
+      const toast = document.getElementById("toast");
+      document.getElementById("toastIcon").textContent = isSuccess ? "✅" : "⚠️";
+      document.getElementById("toastMsg").textContent = msg;
+      toast.classList.remove("translate-y-20", "opacity-0");
+      setTimeout(() => toast.classList.add("translate-y-20", "opacity-0"), 3200);
+    }
+
+    // 2. Kimlik Doğrulama
     loginBtn.onclick = () => {
       const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider).catch(err => alert("Giriş hatası: " + err.message));
+      auth.signInWithPopup(provider).then(() => showToast("Google girişi başarılı!")).catch(err => alert(err.message));
     };
 
-    logoutBtn.onclick = () => auth.signOut();
+    logoutBtn.onclick = () => auth.signOut().then(() => showToast("Oturum kapatıldı."));
 
     auth.onAuthStateChanged(user => {
       currentUser = user;
       if (user) {
         loginBtn.classList.add("hidden");
         userInfo.classList.remove("hidden");
-        userAvatar.src = user.photoURL || "https://via.placeholder.com/40";
+        userName.textContent = user.displayName || "Operatör";
+        userEmail.textContent = user.email || "";
+        userAvatar.src = user.photoURL || "https://ui-avatars.com/api/?name=WMS";
         startRealtimeSync();
       } else {
         loginBtn.classList.remove("hidden");
         userInfo.classList.add("hidden");
         if (unsubscribeStockListener) unsubscribeStockListener();
-        stockList.innerHTML = `<p class="text-center py-8 text-slate-400 text-sm">Verileri senkronize etmek için Google ile giriş yapın.</p>`;
+        stockTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-slate-400">Veritabanına bağlanmak için lütfen Google hesabınızla oturum açın.</td></tr>`;
       }
     });
 
-    // 2. Çalışma Alanı
+    // 3. Çalışma Alanı
     setWorkspaceBtn.onclick = () => {
       const ws = workspaceInput.value.trim().toLowerCase();
       if (ws) {
         currentWorkspace = ws;
-        workspaceLabel.textContent = "Alan: " + ws.toUpperCase();
+        workspaceLabel.textContent = "Depo Lokasyonu: " + ws.toUpperCase();
         startRealtimeSync();
+        showToast(`Depo değiştirildi: ${ws.toUpperCase()}`);
       }
     };
 
-    // 3. Gerçek Zamanlı Dinleyici & Log Kaydı
+    // 4. Gerçek Zamanlı Veri Senkronizasyonu
     function startRealtimeSync() {
       if (!currentUser) return;
       if (unsubscribeStockListener) unsubscribeStockListener();
 
-      workspaceLabel.textContent = "Alan: " + currentWorkspace.toUpperCase();
+      workspaceLabel.textContent = "Depo Lokasyonu: " + currentWorkspace.toUpperCase();
 
       const q = db.collection("workspaces")
                   .doc(currentWorkspace)
@@ -248,248 +456,215 @@
       unsubscribeStockListener = q.onSnapshot(snapshot => {
         allItems = [];
         snapshot.forEach(doc => allItems.push({ id: doc.id, ...doc.data() }));
-        renderList(allItems);
-      }, err => console.error("Sync hatası:", err));
+        updateMetrics(allItems);
+        renderTable(allItems);
+      }, err => console.error("Firestore sync error:", err));
     }
 
-    async function recordLog(action, product, detail) {
-      if (!currentUser) return;
-      try {
-        await db.collection("workspaces").doc(currentWorkspace).collection("logs").add({
-          action,
-          product,
-          detail,
-          user: currentUser.displayName || currentUser.email,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      } catch (err) {
-        console.error("Log hatası:", err);
-      }
-    }
-
-    // 4. Liste Çizdirme & Kritik Stok Filtresi
-    function renderList(items) {
-      const query = searchInput.value.toLowerCase();
+    // 5. Analitik & KPI Hesaplama
+    function updateMetrics(items) {
+      let totalQty = 0;
       let criticals = 0;
+      let totalVal = 0;
 
       items.forEach(i => {
-        const threshold = i.minStock !== undefined ? Number(i.minStock) : 5;
-        if (Number(i.quantity) <= threshold) criticals++;
-      });
-      criticalCountEl.textContent = criticals;
-      totalItemsCountEl.textContent = items.length;
+        const qty = Number(i.quantity) || 0;
+        const price = Number(i.price) || 0;
+        const min = Number(i.minStock) || 5;
 
-      let filtered = items.filter(i => 
-        (i.product || "").toLowerCase().includes(query) || (i.shelf || "").toLowerCase().includes(query)
-      );
+        totalQty += qty;
+        totalVal += (qty * price);
+        if (qty <= min) criticals++;
+      });
+
+      kpiTotalSku.textContent = items.length.toLocaleString("tr-TR");
+      kpiTotalQuantity.textContent = totalQty.toLocaleString("tr-TR");
+      kpiCriticalCount.textContent = criticals.toLocaleString("tr-TR");
+      kpiTotalValuation.textContent = "₺" + totalVal.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // 6. Tabloyu Ekrana Basma
+    function renderTable(items) {
+      const query = searchInput.value.toLowerCase().trim();
+
+      let filtered = items.filter(i => {
+        const matchesQuery = (i.product || "").toLowerCase().includes(query) ||
+                             (i.shelf || "").toLowerCase().includes(query) ||
+                             (i.barcode || "").toLowerCase().includes(query);
+        const matchesCat = (selectedCategoryFilter === "ALL") || (i.category === selectedCategoryFilter);
+        return matchesQuery && matchesCat;
+      });
 
       if (onlyCriticalFilter) {
-        filtered = filtered.filter(i => {
-          const threshold = i.minStock !== undefined ? Number(i.minStock) : 5;
-          return Number(i.quantity) <= threshold;
-        });
+        filtered = filtered.filter(i => Number(i.quantity) <= (Number(i.minStock) || 5));
       }
 
       if (filtered.length === 0) {
-        stockList.innerHTML = `<p class="text-center py-8 text-slate-400 text-sm">Kayıtlı ürün bulunamadı.</p>`;
+        stockTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-12 text-slate-400">Kriterlere uygun ürün kaydı bulunamadı.</td></tr>`;
         return;
       }
 
-      stockList.innerHTML = filtered.map(item => {
-        const threshold = item.minStock !== undefined ? Number(item.minStock) : 5;
-        const isCritical = Number(item.quantity) <= threshold;
+      stockTableBody.innerHTML = filtered.map(item => {
+        const qty = Number(item.quantity) || 0;
+        const min = Number(item.minStock) || 5;
+        const price = Number(item.price) || 0;
+        const total = qty * price;
+        const isCritical = qty <= min;
 
         return `
-          <div class="p-3 flex items-center justify-between hover:bg-slate-50 transition ${isCritical ? 'bg-amber-50/40 border-l-4 border-amber-500' : ''}">
-            <div class="flex items-center gap-3">
-              <span class="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded border border-indigo-200">
-                ${escapeHtml(item.shelf)}
+          <tr class="hover:bg-slate-50/80 transition group ${isCritical ? 'bg-rose-50/30' : ''}">
+            <td class="py-3 px-4 font-mono font-bold text-indigo-700">
+              <span class="bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg text-xs">${escapeHtml(item.shelf)}</span>
+            </td>
+            <td class="py-3 px-4">
+              <div class="font-bold text-slate-900">${escapeHtml(item.product)}</div>
+              ${item.barcode ? `<div class="text-[11px] text-slate-400 font-mono flex items-center gap-1">🏷️ ${escapeHtml(item.barcode)}</div>` : ''}
+            </td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">${escapeHtml(item.category || 'Genel')}</span>
+            </td>
+            <td class="py-3 px-4 text-center font-mono">₺${price.toFixed(2)}</td>
+            <td class="py-3 px-4 text-center">
+              <span class="inline-flex items-center gap-1 font-bold font-mono px-2 py-1 rounded-lg ${isCritical ? 'bg-rose-100 text-rose-700 font-black' : 'bg-slate-100 text-slate-800'}">
+                ${qty}
+                ${isCritical ? '<span class="text-[9px] px-1 bg-rose-600 text-white rounded font-sans">Kritik</span>' : ''}
               </span>
-              <div>
-                <div class="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-                  ${escapeHtml(item.product)}
-                  ${isCritical ? '<span class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">Kritik</span>' : ''}
-                </div>
-                <div class="text-[10px] text-slate-400">
-                  Eşik: ${threshold} | Son: ${escapeHtml(item.updatedBy || 'Bilinmiyor')}
-                </div>
+            </td>
+            <td class="py-3 px-4 text-center font-mono font-bold text-slate-800">₺${total.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}</td>
+            <td class="py-3 px-4 text-right whitespace-nowrap">
+              <div class="flex items-center justify-end gap-1.5">
+                <button onclick="openMovementModal('${item.id}', '${escapeHtml(item.product)}', ${qty})" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-lg font-bold text-xs transition">
+                  Fiş Kes
+                </button>
+                <button onclick="deleteItem('${item.id}', '${escapeHtml(item.product)}')" class="text-slate-300 hover:text-rose-600 p-1 rounded transition" title="Sil">
+                  🗑️
+                </button>
               </div>
-            </div>
-            <div class="flex items-center gap-1.5">
-              <button onclick="updateQty('${item.id}', ${item.quantity - 1}, '${escapeHtml(item.product)}')" class="w-7 h-7 bg-slate-100 rounded text-slate-600 font-bold hover:bg-slate-200 transition">-</button>
-              <span class="text-sm font-mono font-bold w-9 text-center ${isCritical ? 'text-red-600 font-black' : ''}">${item.quantity}</span>
-              <button onclick="updateQty('${item.id}', ${item.quantity + 1}, '${escapeHtml(item.product)}')" class="w-7 h-7 bg-slate-100 rounded text-slate-600 font-bold hover:bg-slate-200 transition">+</button>
-              <button onclick="deleteItem('${item.id}', '${escapeHtml(item.product)}')" class="ml-1.5 text-slate-400 hover:text-red-600 text-sm transition">🗑️</button>
-            </div>
-          </div>
+            </td>
+          </tr>
         `;
       }).join("");
     }
 
+    // 7. Filtre Olayları
+    searchInput.oninput = () => renderTable(allItems);
+    categoryFilter.onchange = (e) => {
+      selectedCategoryFilter = e.target.value;
+      renderTable(allItems);
+    };
     filterCriticalBtn.onclick = () => {
       onlyCriticalFilter = !onlyCriticalFilter;
-      filterCriticalBtn.classList.toggle("bg-amber-500", onlyCriticalFilter);
+      filterCriticalBtn.classList.toggle("bg-rose-600", onlyCriticalFilter);
       filterCriticalBtn.classList.toggle("text-white", onlyCriticalFilter);
-      renderList(allItems);
+      renderTable(allItems);
     };
 
-    // 5. CRUD İşlemleri
+    // 8. Yeni Ürün Ekleme
     itemForm.onsubmit = async (e) => {
       e.preventDefault();
-      if (!currentUser) return alert("Lütfen önce Google ile giriş yapın.");
+      if (!currentUser) return alert("Lütfen önce giriş yapın.");
 
       const shelf = document.getElementById("shelfInput").value.trim().toUpperCase();
       const product = document.getElementById("productInput").value.trim();
-      const qty = parseInt(document.getElementById("qtyInput").value, 10);
-      const minStock = parseInt(document.getElementById("minStockInput").value, 10) || 5;
+      const barcode = document.getElementById("barcodeInput").value.trim();
+      const category = document.getElementById("categoryInput").value;
+      const quantity = parseInt(document.getElementById("qtyInput").value, 10);
+      const minStock = parseInt(document.getElementById("minStockInput").value, 10);
+      const price = parseFloat(document.getElementById("priceInput").value) || 0;
 
       await db.collection("workspaces").doc(currentWorkspace).collection("items").add({
-        shelf,
-        product,
-        quantity: qty,
-        minStock: minStock,
+        shelf, product, barcode, category, quantity, minStock, price,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedBy: currentUser.displayName || currentUser.email
       });
 
-      await recordLog("Ekleme", product, `Raf: ${shelf}, Miktar: ${qty}`);
-      document.getElementById("productInput").value = "";
+      await recordLog("Yeni Tanım", product, `Raf: ${shelf}, Miktar: ${quantity}, Fiyat: ₺${price}`);
+      showToast(`${product} envantere kaydedildi.`);
+      itemForm.reset();
       document.getElementById("qtyInput").value = "1";
+      document.getElementById("minStockInput").value = "5";
+      document.getElementById("priceInput").value = "0.00";
     };
 
-    window.updateQty = async (id, newQty, productName) => {
-      if (newQty < 0) return;
+    // 9. Stok Giriş / Çıkış Hareketi (Fiş)
+    window.openMovementModal = (id, product, currentQty) => {
+      document.getElementById("movementItemId").value = id;
+      document.getElementById("movementCurrentQty").value = currentQty;
+      document.getElementById("movementProductLabel").textContent = `${product} (Mevcut: ${currentQty} Adet)`;
+      document.getElementById("movementQty").value = "1";
+      setMovementType('IN');
+      document.getElementById("movementModal").classList.remove("hidden");
+    };
+
+    window.closeMovementModal = () => document.getElementById("movementModal").classList.add("hidden");
+
+    window.setMovementType = (type) => {
+      currentMovementType = type;
+      const inBtn = document.getElementById("typeInBtn");
+      const outBtn = document.getElementById("typeOutBtn");
+      if (type === 'IN') {
+        inBtn.className = "py-2.5 rounded-xl font-bold text-xs border border-emerald-500 bg-emerald-50 text-emerald-700 flex items-center justify-center gap-1";
+        outBtn.className = "py-2.5 rounded-xl font-bold text-xs border border-slate-200 text-slate-600 flex items-center justify-center gap-1";
+      } else {
+        outBtn.className = "py-2.5 rounded-xl font-bold text-xs border border-rose-500 bg-rose-50 text-rose-700 flex items-center justify-center gap-1";
+        inBtn.className = "py-2.5 rounded-xl font-bold text-xs border border-slate-200 text-slate-600 flex items-center justify-center gap-1";
+      }
+    };
+
+    document.getElementById("movementForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const id = document.getElementById("movementItemId").value;
+      const cur = parseInt(document.getElementById("movementCurrentQty").value, 10);
+      const delta = parseInt(document.getElementById("movementQty").value, 10);
+      const reason = document.getElementById("movementReason").value;
+      const pName = document.getElementById("movementProductLabel").textContent.split(" (Mevcut:")[0];
+
+      let newQty = currentMovementType === 'IN' ? cur + delta : cur - delta;
+      if (newQty < 0) return alert("Stok miktarı sıfırın altına düşemez!");
+
       await db.collection("workspaces").doc(currentWorkspace).collection("items").doc(id).update({
         quantity: newQty,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedBy: currentUser.displayName || currentUser.email
       });
-      await recordLog("Miktar Güncelleme", productName, `Yeni Miktar: ${newQty}`);
+
+      const actionText = currentMovementType === 'IN' ? `Giriş (+${delta})` : `Çıkış (-${delta})`;
+      await recordLog(actionText, pName, `Neden: ${reason} | Kalan: ${newQty}`);
+      closeMovementModal();
+      showToast(`${pName} stoğu güncellendi.`);
     };
 
+    // 10. Silme İşlemi
     window.deleteItem = async (id, productName) => {
-      if (confirm(`"${productName}" ürününü silmek istediğinize emin misiniz?`)) {
+      if (confirm(`"${productName}" kalemini silmek istediğinize emin misiniz?`)) {
         await db.collection("workspaces").doc(currentWorkspace).collection("items").doc(id).delete();
-        await recordLog("Silme", productName, "Ürün kaydı silindi");
+        await recordLog("Kayıt Silme", productName, "Envanter kartı tamamen silindi.");
+        showToast(`${productName} silindi.`, false);
       }
     };
 
-    searchInput.oninput = () => renderList(allItems);
-
-    // 6. Excel / CSV Dışa Aktarma
-    exportCsvBtn.onclick = () => {
-      if (allItems.length === 0) return alert("Dışa aktarılacak veri bulunamadı.");
-      
-      let csvContent = "\uFEFFRaf Konumu,Ürün Adı / Barkod,Miktar,Kritik Eşik,Son Güncelleyen\n";
-      allItems.forEach(i => {
-        csvContent += `"${(i.shelf || '').replace(/"/g, '""')}","${(i.product || '').replace(/"/g, '""')}",${i.quantity},${i.minStock || 5},"${(i.updatedBy || '').replace(/"/g, '""')}"\n`;
-      });
-
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `stok_${currentWorkspace}_${new Date().toISOString().slice(0,10)}.csv`;
-      link.click();
-      link.remove();
-    };
-
-    // 7. JSON Yedek İndirme & Yükleme (Geri Yükleme)
-    exportBackupBtn.onclick = () => {
-      if (allItems.length === 0) return alert("Yedeklenecek veri yok.");
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allItems, null, 2));
-      const downloadAnchor = document.createElement("a");
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `raf_stok_yedek_${currentWorkspace}_${new Date().toISOString().slice(0,10)}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-    };
-
-    importJsonBtn.onclick = () => importJsonInput.click();
-
-    importJsonInput.onchange = (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        try {
-          const importedData = JSON.parse(event.target.result);
-          if (!Array.isArray(importedData)) throw new Error("Geçersiz yedek dosyası yapısı.");
-
-          if (!confirm(`${importedData.length} adet stok kaydı "${currentWorkspace.toUpperCase()}" alanına yüklenecek. Onaylıyor musunuz?`)) return;
-
-          const batch = db.batch();
-          const itemsRef = db.collection("workspaces").doc(currentWorkspace).collection("items");
-
-          importedData.forEach(item => {
-            const docRef = itemsRef.doc();
-            batch.set(docRef, {
-              shelf: item.shelf || "GENEL",
-              product: item.product || "Tanımsız",
-              quantity: Number(item.quantity) || 0,
-              minStock: Number(item.minStock) || 5,
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-              updatedBy: (currentUser.displayName || currentUser.email) + " (Yedek Geri Yükleme)"
-            });
-          });
-
-          await batch.commit();
-          await recordLog("Geri Yükleme", "Toplu İçe Aktarım", `${importedData.length} adet kayıt yüklendi`);
-          alert("Yedek başarıyla içeri aktarıldı!");
-        } catch (err) {
-          alert("Dosya yükleme hatası: " + err.message);
-        }
-        importJsonInput.value = "";
-      };
-      reader.readAsText(file);
-    };
-
-    // 8. Kamera ile Barkod Okuyucu (Html5Qrcode)
-    window.openScanner = (targetInputId) => {
-      currentScanTargetId = targetInputId;
-      document.getElementById("scannerModal").classList.remove("hidden");
-      
-      html5QrScanner = new Html5Qrcode("qr-reader");
-      html5QrScanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
-          document.getElementById(currentScanTargetId).value = decodedText;
-          if (currentScanTargetId === "searchInput") renderList(allItems);
-          closeScanner();
-        },
-        (error) => { /* Okuma aralığı taraması - hata loglamaya gerek yok */ }
-      ).catch(err => {
-        alert("Kamera başlatılamadı: " + err);
-        closeScanner();
-      });
-    };
-
-    window.closeScanner = () => {
-      if (html5QrScanner) {
-        html5QrScanner.stop().then(() => {
-          html5QrScanner.clear();
-          document.getElementById("scannerModal").classList.add("hidden");
-        }).catch(() => {
-          document.getElementById("scannerModal").classList.add("hidden");
+    // 11. Denetim İzi (Audit Log)
+    async function recordLog(action, product, detail) {
+      if (!currentUser) return;
+      try {
+        await db.collection("workspaces").doc(currentWorkspace).collection("logs").add({
+          action, product, detail,
+          user: currentUser.displayName || currentUser.email,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
-      } else {
-        document.getElementById("scannerModal").classList.add("hidden");
-      }
-    };
+      } catch (err) { console.error("Log error:", err); }
+    }
 
-    // 9. İşlem Geçmişi (Log) Modal Görüntüleme
     openLogsBtn.onclick = async () => {
       const logsModal = document.getElementById("logsModal");
       const logsContainer = document.getElementById("logsContainer");
       logsModal.classList.remove("hidden");
-      logsContainer.innerHTML = `<p class="text-center text-slate-400 py-6">Hareketler yükleniyor...</p>`;
+      logsContainer.innerHTML = `<p class="text-center text-slate-400 py-8">Kayıtlar getiriliyor...</p>`;
 
       try {
-        const snap = await db.collection("workspaces").doc(currentWorkspace).collection("logs").orderBy("timestamp", "desc").limit(35).get();
+        const snap = await db.collection("workspaces").doc(currentWorkspace).collection("logs").orderBy("timestamp", "desc").limit(50).get();
         if (snap.empty) {
-          logsContainer.innerHTML = `<p class="text-center text-slate-400 py-6">Henüz bir hareket kaydı yok.</p>`;
+          logsContainer.innerHTML = `<p class="text-center text-slate-400 py-8">Kayıtlı hareket bulunamadı.</p>`;
           return;
         }
 
@@ -497,25 +672,112 @@
           const l = doc.data();
           const time = l.timestamp ? new Date(l.timestamp.toDate()).toLocaleString("tr-TR") : "Az önce";
           return `
-            <div class="py-2 flex justify-between items-start gap-2">
+            <div class="py-2.5 flex justify-between items-start gap-2">
               <div>
-                <span class="font-bold text-slate-700">${escapeHtml(l.action)}</span> - 
+                <span class="font-bold text-slate-800">${escapeHtml(l.action)}</span> · 
                 <span class="text-slate-900 font-semibold">${escapeHtml(l.product || '')}</span>
-                <div class="text-[11px] text-slate-500">${escapeHtml(l.detail || '')}</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(l.detail || '')}</div>
               </div>
               <div class="text-right whitespace-nowrap">
-                <div class="text-[10px] text-indigo-600 font-medium">${escapeHtml(l.user || '')}</div>
-                <div class="text-[9px] text-slate-400">${time}</div>
+                <div class="text-[11px] text-indigo-600 font-bold">${escapeHtml(l.user || '')}</div>
+                <div class="text-[10px] text-slate-400">${time}</div>
               </div>
             </div>
           `;
         }).join("");
-      } catch (err) {
-        logsContainer.innerHTML = `<p class="text-center text-red-500 py-6">Hata: ${err.message}</p>`;
-      }
+      } catch (err) { logsContainer.innerHTML = `<p class="text-center text-rose-500 py-8">Hata: ${err.message}</p>`; }
+    };
+    window.closeLogsModal = () => document.getElementById("logsModal").classList.add("hidden");
+
+    // 12. Dışa / İçe Aktarım
+    exportCsvBtn.onclick = () => {
+      if (allItems.length === 0) return alert("Dışa aktarılacak veri yok.");
+      let csv = "\uFEFFRaf,Ürün Tanımı,Barkod,Kategori,Miktar,Birim Fiyat (TL),Toplam Değer (TL),Kritik Eşik,Son Güncelleyen\n";
+      allItems.forEach(i => {
+        const p = Number(i.price) || 0;
+        const q = Number(i.quantity) || 0;
+        csv += `"${i.shelf || ''}","${i.product || ''}","${i.barcode || ''}","${i.category || ''}",${q},${p},${(p*q).toFixed(2)},${i.minStock || 5},"${i.updatedBy || ''}"\n`;
+      });
+      downloadFile(csv, `stok_envanter_${currentWorkspace}_${new Date().toISOString().slice(0,10)}.csv`, "text/csv;charset=utf-8;");
     };
 
-    window.closeLogsModal = () => document.getElementById("logsModal").classList.add("hidden");
+    exportBackupBtn.onclick = () => {
+      if (allItems.length === 0) return alert("Yedeklenecek veri yok.");
+      downloadFile(JSON.stringify(allItems, null, 2), `yedek_${currentWorkspace}_${new Date().toISOString().slice(0,10)}.json`, "application/json");
+    };
+
+    importJsonBtn.onclick = () => importJsonInput.click();
+    importJsonInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const data = JSON.parse(evt.target.result);
+          if (!Array.isArray(data)) throw new Error("Geçersiz JSON formatı.");
+          if (!confirm(`${data.length} adet kayıt "${currentWorkspace.toUpperCase()}" deposuna eklenecek?`)) return;
+
+          const batch = db.batch();
+          const ref = db.collection("workspaces").doc(currentWorkspace).collection("items");
+          data.forEach(item => {
+            batch.set(ref.doc(), {
+              shelf: item.shelf || "A-01",
+              product: item.product || "Tanımsız",
+              barcode: item.barcode || "",
+              category: item.category || "Genel",
+              quantity: Number(item.quantity) || 0,
+              minStock: Number(item.minStock) || 5,
+              price: Number(item.price) || 0,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              updatedBy: (currentUser.displayName || currentUser.email) + " (İçe Aktarım)"
+            });
+          });
+          await batch.commit();
+          await recordLog("Toplu İçe Aktarım", "Veri Yükleme", `${data.length} kayıt içeri aktarıldı.`);
+          showToast("Yedek başarıyla içeri aktarıldı!");
+        } catch (err) { alert("Yükleme hatası: " + err.message); }
+        importJsonInput.value = "";
+      };
+      reader.readAsText(file);
+    };
+
+    function downloadFile(content, fileName, mimeType) {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([content], { type: mimeType }));
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    // 13. Barkod Tarayıcı
+    window.openScanner = (targetId) => {
+      currentScanTargetId = targetId;
+      document.getElementById("scannerModal").classList.remove("hidden");
+      html5QrScanner = new Html5Qrcode("qr-reader");
+      html5QrScanner.start(
+        { facingMode: "environment" },
+        { fps: 12, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+          document.getElementById(currentScanTargetId).value = decodedText;
+          if (currentScanTargetId === "searchInput") renderTable(allItems);
+          closeScanner();
+          showToast("Barkod okundu: " + decodedText);
+        },
+        () => {}
+      ).catch(err => { alert("Kamera açılamadı: " + err); closeScanner(); });
+    };
+
+    window.closeScanner = () => {
+      if (html5QrScanner) {
+        html5QrScanner.stop().then(() => {
+          html5QrScanner.clear();
+          document.getElementById("scannerModal").classList.add("hidden");
+        }).catch(() => document.getElementById("scannerModal").classList.add("hidden"));
+      } else {
+        document.getElementById("scannerModal").classList.add("hidden");
+      }
+    };
 
     function escapeHtml(str) {
       return (str || "").toString().replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
