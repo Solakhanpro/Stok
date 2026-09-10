@@ -1,13 +1,18 @@
 {
-  "background_color": "#0b0b0b",
-  "dir": "ltr",
+  "name": "Raf ve Stok Takip",
+  "short_name": "Stok Takip",
+  "description": "Google senkronizasyonlu anlık raf ve stok yönetim uygulaması.",
+  "start_url": "index.html",
   "display": "standalone",
-  "name": "Stok Takip",
-  "orientation": "any",
-  "scope": "/",
-  "short_name": "Stok",
-  "start_url": "/",
-  "theme_color": "#d39011",
-  "id": "StokTakipPro",
-  "description": "Raf ve stok takibi yapmanın en pratik yolu."
+  "background_color": "#0b0f19",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
