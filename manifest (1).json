@@ -1,0 +1,13 @@
+{
+  "background_color": "#0b0b0b",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "Stok Takip",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "Stok",
+  "start_url": "/",
+  "theme_color": "#d39011",
+  "id": "StokTakipPro",
+  "description": "Raf ve stok takibi yapmanın en pratik yolu."
+}
