@@ -1,0 +1,2 @@
+# Stok
+Raf stok uygulaması
