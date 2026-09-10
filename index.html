@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Raf & Stok Takip</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- Üst Bar -->
+  <header class="bg-indigo-600 text-white shadow-md p-4 sticky top-0 z-20 flex justify-between items-center">
+    <div>
+      <h1 class="text-lg font-bold">📦 Raf & Stok Takip</h1>
+      <p id="workspaceLabel" class="text-xs text-indigo-200">Alan: Seçilmedi</p>
+    </div>
+    <div id="authSection">
+      <button id="loginBtn" class="bg-white text-indigo-600 text-sm font-semibold px-3 py-1.5 rounded-lg shadow hover:bg-indigo-50">
+        Google ile Giriş
+      </button>
+      <div id="userInfo" class="hidden flex items-center gap-2">
+        <img id="userAvatar" class="w-8 h-8 rounded-full border border-white" alt="Profil" />
+        <button id="logoutBtn" class="text-xs bg-indigo-700 px-2 py-1 rounded hover:bg-indigo-800">Çıkış</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Ana İçerik -->
+  <main class="flex-1 max-w-4xl w-full mx-auto p-4 space-y-4">
+
+    <!-- Ortak Depo Kodu & Yedekleme -->
+    <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-2 justify-between items-center">
+      <div class="flex items-center gap-2">
+        <label class="text-xs font-semibold text-slate-500">Ortak Depo Kodu:</label>
+        <input type="text" id="workspaceInput" value="ana-depo" class="border rounded px-2 py-1 text-sm w-28 text-center uppercase font-mono font-bold bg-slate-50" />
+        <button id="setWorkspaceBtn" class="bg-slate-800 text-white text-xs px-2.5 py-1.5 rounded hover:bg-slate-700">Bağlan</button>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="exportBackupBtn" class="text-xs bg-emerald-600 text-white px-2.5 py-1.5 rounded hover:bg-emerald-700">
+          📥 JSON Yedek İndir
+        </button>
+      </div>
+    </div>
+
+    <!-- Ürün Ekleme -->
+    <section class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+      <h2 class="text-sm font-bold text-slate-700 mb-3">Yeni Stok / Raf Kaydı</h2>
+      <form id="itemForm" class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Raf No / Konum</label>
+          <input type="text" id="shelfInput" placeholder="Örn: A-12, B3" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" />
+        </div>
+        <div class="sm:col-span-2">
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Ürün Adı / Barkod</label>
+          <input type="text" id="productInput" placeholder="Örn: M8 Çelik Civata" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Miktar</label>
+          <div class="flex gap-1">
+            <input type="number" id="qtyInput" min="0" value="1" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" />
+            <button type="submit" class="bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg hover:bg-indigo-700 transition">+</button>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- Canlı Arama -->
+    <div class="relative">
+      <input type="text" id="searchInput" placeholder="Raf veya ürün adına göre anlık ara..." class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm pl-10 shadow-sm focus:ring-2 focus:ring-indigo-400 outline-none" />
+      <span class="absolute left-3.5 top-2.5 text-slate-400 text-sm">🔍</span>
+    </div>
+
+    <!-- Stok Listesi -->
+    <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+        <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Stoktaki Kalemler</span>
+        <span id="syncIndicator" class="text-xs text-emerald-600 flex items-center gap-1 font-medium">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Canlı Bağlı
+        </span>
+      </div>
+
+      <div id="stockList" class="divide-y divide-slate-100 min-h-[150px]">
+        <p class="text-center py-8 text-slate-400 text-sm">Yükleniyor veya giriş yapılmadı...</p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Firebase Proje Anahtarlarınız
+    const firebaseConfig = {
+      apiKey: "AIzaSyBxRYNnpcpeL2gaftyYp_o_t-uRWDCUCJc",
+      authDomain: "stok-takip-b1852.firebaseapp.com",
+      projectId: "stok-takip-b1852",
+      storageBucket: "stok-takip-b1852.firebasestorage.app",
+      messagingSenderId: "198430018804",
+      appId: "1:198430018804:web:c28ac4c35d0358937f22a1",
+      measurementId: "G-81CE8HHNW5"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    db.enablePersistence().catch(err => console.warn("Çevrimdışı modu:", err.code));
+
+    let currentUser = null;
+    let currentWorkspace = "ana-depo";
+    let unsubscribeStockListener = null;
+    let allItems = [];
+
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const userInfo = document.getElementById("userInfo");
+    const userAvatar = document.getElementById("userAvatar");
+    const workspaceInput = document.getElementById("workspaceInput");
+    const setWorkspaceBtn = document.getElementById("setWorkspaceBtn");
+    const workspaceLabel = document.getElementById("workspaceLabel");
+    const itemForm = document.getElementById("itemForm");
+    const stockList = document.getElementById("stockList");
+    const searchInput = document.getElementById("searchInput");
+    const exportBackupBtn = document.getElementById("exportBackupBtn");
+
+    loginBtn.onclick = () => {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider).catch(err => alert("Giriş hatası: " + err.message));
+    };
+
+    logoutBtn.onclick = () => auth.signOut();
+
+    auth.onAuthStateChanged(user => {
+      currentUser = user;
+      if (user) {
+        loginBtn.classList.add("hidden");
+        userInfo.classList.remove("hidden");
+        userAvatar.src = user.photoURL || "https://via.placeholder.com/40";
+        startRealtimeSync();
+      } else {
+        loginBtn.classList.remove("hidden");
+        userInfo.classList.add("hidden");
+        if (unsubscribeStockListener) unsubscribeStockListener();
+        stockList.innerHTML = `<p class="text-center py-8 text-slate-400 text-sm">Verileri görmek ve senkronize etmek için Google ile giriş yapın.</p>`;
+      }
+    });
+
+    setWorkspaceBtn.onclick = () => {
+      const ws = workspaceInput.value.trim().toLowerCase();
+      if (ws) {
+        currentWorkspace = ws;
+        workspaceLabel.textContent = "Alan: " + ws.toUpperCase();
+        startRealtimeSync();
+      }
+    };
+
+    function startRealtimeSync() {
+      if (!currentUser) return;
+      if (unsubscribeStockListener) unsubscribeStockListener();
+
+      workspaceLabel.textContent = "Alan: " + currentWorkspace.toUpperCase();
+      
+      const q = db.collection("workspaces")
+                  .doc(currentWorkspace)
+                  .collection("items")
+                  .orderBy("updatedAt", "desc");
+
+      unsubscribeStockListener = q.onSnapshot(snapshot => {
+        allItems = [];
+        snapshot.forEach(doc => allItems.push({ id: doc.id, ...doc.data() }));
+        renderList(allItems);
+      }, err => {
+        console.error("Senkronizasyon hatası:", err);
+      });
+    }
+
+    function renderList(items) {
+      const query = searchInput.value.toLowerCase();
+      const filtered = items.filter(i => 
+        (i.product || "").toLowerCase().includes(query) || (i.shelf || "").toLowerCase().includes(query)
+      );
+
+      if (filtered.length === 0) {
+        stockList.innerHTML = `<p class="text-center py-8 text-slate-400 text-sm">Kayıtlı ürün bulunamadı.</p>`;
+        return;
+      }
+
+      stockList.innerHTML = filtered.map(item => `
+        <div class="p-3 flex items-center justify-between hover:bg-slate-50 transition">
+          <div class="flex items-center gap-3">
+            <span class="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded border border-indigo-200">
+              ${escapeHtml(item.shelf)}
+            </span>
+            <div>
+              <div class="text-sm font-semibold text-slate-800">${escapeHtml(item.product)}</div>
+              <div class="text-[10px] text-slate-400">Son Güncelleyen: ${escapeHtml(item.updatedBy || 'Bilinmiyor')}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="updateQty('${item.id}', ${item.quantity - 1})" class="w-7 h-7 bg-slate-100 rounded text-slate-600 font-bold hover:bg-slate-200">-</button>
+            <span class="text-sm font-mono font-bold w-10 text-center">${item.quantity}</span>
+            <button onclick="updateQty('${item.id}', ${item.quantity + 1})" class="w-7 h-7 bg-slate-100 rounded text-slate-600 font-bold hover:bg-slate-200">+</button>
+            <button onclick="deleteItem('${item.id}')" class="ml-2 text-red-500 text-sm hover:text-red-700">🗑️</button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    itemForm.onsubmit = async (e) => {
+      e.preventDefault();
+      if (!currentUser) return alert("Lütfen önce Google ile giriş yapın.");
+
+      const shelf = document.getElementById("shelfInput").value.trim();
+      const product = document.getElementById("productInput").value.trim();
+      const qty = parseInt(document.getElementById("qtyInput").value, 10);
+
+      await db.collection("workspaces").doc(currentWorkspace).collection("items").add({
+        shelf,
+        product,
+        quantity: qty,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: currentUser.displayName || currentUser.email
+      });
+
+      document.getElementById("productInput").value = "";
+      document.getElementById("qtyInput").value = "1";
+    };
+
+    window.updateQty = async (id, newQty) => {
+      if (newQty < 0) return;
+      await db.collection("workspaces").doc(currentWorkspace).collection("items").doc(id).update({
+        quantity: newQty,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: currentUser.displayName || currentUser.email
+      });
+    };
+
+    window.deleteItem = async (id) => {
+      if (confirm("Bu ürünü silmek istediğinize emin misiniz?")) {
+        await db.collection("workspaces").doc(currentWorkspace).collection("items").doc(id).delete();
+      }
+    };
+
+    searchInput.oninput = () => renderList(allItems);
+
+    exportBackupBtn.onclick = () => {
+      if (allItems.length === 0) return alert("Yedeklenecek veri yok.");
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allItems, null, 2));
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `raf_stok_yedek_${currentWorkspace}_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    };
+
+    function escapeHtml(str) {
+      return (str || "").replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
+    }
+  </script>
+</body>
+</html>
