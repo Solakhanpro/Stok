@@ -1,14 +1,8 @@
-[
-  {
-    "relation": [
-      "delegate_permission/common.handle_all_urls"
-    ],
-    "target": {
-      "namespace": "Stok",
-      "package_name": "io.github.solakhanpro.twa",
-      "sha256_cert_fingerprints": [
-        "F8:AE:4D:90:87:53:80:1D:61:A1:3A:75:4C:5C:AE:D4:37:78:9C:DE:E2:0C:32:DB:4B:F5:AF:4F:32:D0:92:D4"
-      ]
-    }
-  }
-]
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.solakhanpro.twa",
+        "sha256_cert_fingerprints": ["55:EA:33:0A:D8:B5:AA:2B:5D:72:E4:3B:31:CC:0E:9E:EB:CC:6B:C9:1B:CF:E9:5A:63:1B:6D:65:E1:18:52:AD"]
+      }
+    }]
