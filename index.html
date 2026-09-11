@@ -136,8 +136,8 @@
           📥 JSON Yedek
         </button>
         <input type="file" id="importJsonInput" accept=".json" class="hidden" />
-        <button id="importJsonBtn" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold px-3 py-2 rounded-xl border border-indigo-200 transition flex items-center gap-1.5">
-          📤 Geri Yükle
+        <button id="importJsonBtn" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold px-3 py-2 rounded-xl border border-indigo-200 transition flex items-center gap-1.5" title="Standart JSON veya Quisol Yedeği Yükle">
+          📤 Geri Yükle (Quisol Uyumlu)
         </button>
       </div>
     </div>
@@ -176,11 +176,13 @@
           <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Kategori</label>
           <select id="categoryInput" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
             <option value="Genel">Genel</option>
-            <option value="Hammadde">Hammadde</option>
-            <option value="Yarı Mamul">Yarı Mamul</option>
+            <option value="Kılıf">Kılıf</option>
+            <option value="Kırılmaz Cam">Kırılmaz Cam</option>
+            <option value="Şarj Aleti">Şarj Aleti</option>
+            <option value="Kablo">Kablo</option>
+            <option value="Kulaklık">Kulaklık</option>
+            <option value="Çakmaklık">Çakmaklık</option>
             <option value="Yedek Parça">Yedek Parça</option>
-            <option value="Ticari Ürün">Ticari Ürün</option>
-            <option value="Sarf Malzeme">Sarf Malzeme</option>
           </select>
         </div>
 
@@ -220,11 +222,13 @@
         </button>
         <select id="categoryFilter" class="bg-white border border-slate-200 text-slate-700 text-xs font-semibold px-3 py-2.5 rounded-xl shadow-sm outline-none">
           <option value="ALL">Tüm Kategoriler</option>
-          <option value="Hammadde">Hammadde</option>
-          <option value="Yarı Mamul">Yarı Mamul</option>
-          <option value="Yedek Parça">Yedek Parça</option>
-          <option value="Ticari Ürün">Ticari Ürün</option>
-          <option value="Sarf Malzeme">Sarf Malzeme</option>
+          <option value="Kılıf">Kılıf</option>
+          <option value="Kırılmaz Cam">Kırılmaz Cam</option>
+          <option value="Şarj Aleti">Şarj Aleti</option>
+          <option value="Kablo">Kablo</option>
+          <option value="Kulaklık">Kulaklık</option>
+          <option value="Çakmaklık">Çakmaklık</option>
+          <option value="Genel">Genel</option>
         </select>
         <button id="filterCriticalBtn" class="bg-white border border-slate-200 text-slate-700 text-xs font-semibold px-3 py-2.5 rounded-xl shadow-sm hover:bg-slate-50 transition flex items-center gap-1.5 whitespace-nowrap">
           ⚠️ Kritikler
@@ -689,7 +693,7 @@
     };
     window.closeLogsModal = () => document.getElementById("logsModal").classList.add("hidden");
 
-    // 12. Dışa / İçe Aktarım
+    // 12. Dışa / İçe Aktarım (Quisol Desteği & 500+ Çoklu Paketleme Entegre)
     exportCsvBtn.onclick = () => {
       if (allItems.length === 0) return alert("Dışa aktarılacak veri yok.");
       let csv = "\uFEFFRaf,Ürün Tanımı,Barkod,Kategori,Miktar,Birim Fiyat (TL),Toplam Değer (TL),Kritik Eşik,Son Güncelleyen\n";
@@ -713,28 +717,72 @@
       const reader = new FileReader();
       reader.onload = async (evt) => {
         try {
-          const data = JSON.parse(evt.target.result);
-          if (!Array.isArray(data)) throw new Error("Geçersiz JSON formatı.");
-          if (!confirm(`${data.length} adet kayıt "${currentWorkspace.toUpperCase()}" deposuna eklenecek?`)) return;
+          const raw = JSON.parse(evt.target.result);
+          let itemsToImport = [];
 
-          const batch = db.batch();
-          const ref = db.collection("workspaces").doc(currentWorkspace).collection("items");
-          data.forEach(item => {
-            batch.set(ref.doc(), {
-              shelf: item.shelf || "A-01",
+          // Quisol Mobile yedek dosyasını otomatik tanıma
+          if (raw.app === "quisol-mobile" || (raw.products && Array.isArray(raw.products))) {
+            itemsToImport = raw.products.map(p => {
+              const brand = p.brandName ? p.brandName.trim() + " " : "";
+              let cat = "Genel";
+              if (p.otherCategory && p.otherCategory.trim()) {
+                cat = p.otherCategory.trim();
+              } else if (p.type === "kirilmaz") {
+                cat = "Kırılmaz Cam";
+              } else if (p.type === "kilif") {
+                cat = "Kılıf";
+              } else if (p.category) {
+                cat = p.category;
+              }
+
+              return {
+                shelf: (p.shelf || "GENEL").trim().toUpperCase(),
+                product: (brand + (p.model || "")).trim() || "Tanımsız Ürün",
+                barcode: (p.barcode || "").trim(),
+                category: cat,
+                quantity: Number(p.quantity) || 0,
+                minStock: Number(p.criticalThreshold) !== undefined ? Number(p.criticalThreshold) : 5,
+                price: Number(p.sellPrice) || Number(p.buyPrice) || 0
+              };
+            });
+          } else if (Array.isArray(raw)) {
+            // Standart Stok Takip Pro JSON yapısı
+            itemsToImport = raw.map(item => ({
+              shelf: (item.shelf || "A-01").toUpperCase(),
               product: item.product || "Tanımsız",
               barcode: item.barcode || "",
               category: item.category || "Genel",
               quantity: Number(item.quantity) || 0,
               minStock: Number(item.minStock) || 5,
-              price: Number(item.price) || 0,
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-              updatedBy: (currentUser.displayName || currentUser.email) + " (İçe Aktarım)"
+              price: Number(item.price) || 0
+            }));
+          } else {
+            throw new Error("Geçersiz veya tanınmayan yedek dosyası formatı.");
+          }
+
+          if (!confirm(`${itemsToImport.length} adet envanter kaydı "${currentWorkspace.toUpperCase()}" deposuna aktarılacak. Onaylıyor musunuz?`)) return;
+
+          showToast("Aktarım başlatıldı, lütfen bekleyin...");
+
+          // Firestore'un 500 doküman sınırına takılmamak için 400'lük paketlerle kaydetme
+          const chunkSize = 400;
+          const itemsRef = db.collection("workspaces").doc(currentWorkspace).collection("items");
+
+          for (let i = 0; i < itemsToImport.length; i += chunkSize) {
+            const chunk = itemsToImport.slice(i, i + chunkSize);
+            const batch = db.batch();
+            chunk.forEach(item => {
+              batch.set(itemsRef.doc(), {
+                ...item,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedBy: (currentUser.displayName || currentUser.email) + " (Yedek Aktarımı)"
+              });
             });
-          });
-          await batch.commit();
-          await recordLog("Toplu İçe Aktarım", "Veri Yükleme", `${data.length} kayıt içeri aktarıldı.`);
-          showToast("Yedek başarıyla içeri aktarıldı!");
+            await batch.commit();
+          }
+
+          await recordLog("Toplu İçe Aktarım", "Quisol / JSON Yedeği", `${itemsToImport.length} kayıt aktarıldı.`);
+          showToast(`${itemsToImport.length} ürün başarıyla içe aktarıldı!`);
         } catch (err) { alert("Yükleme hatası: " + err.message); }
         importJsonInput.value = "";
       };
